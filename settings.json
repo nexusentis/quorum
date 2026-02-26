@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(codex exec --full-auto --sandbox read-only *)",
+      "Bash(copilot -p * --silent *)",
+      "Bash(copilot --acp)",
+      "Bash(agent -p --force --trust *)",
+      "Bash(gemini -p * --yolo *)",
+      "mcp__quorum-codex__codex_query",
+      "mcp__quorum-copilot__copilot_query",
+      "mcp__quorum-cursor__cursor_query",
+      "mcp__quorum-gemini__gemini_query",
+      "mcp__quorum__quorum_query"
+    ]
+  }
+}

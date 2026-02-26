@@ -1,0 +1,38 @@
+{
+  "name": "quorum-agents",
+  "version": "1.0.0",
+  "description": "Multi-agent MCP server — fan out to Codex, Copilot, Cursor, and Gemini in parallel",
+  "type": "module",
+  "bin": {
+    "quorum-agents": "dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "rm -rf dist && tsc",
+    "start": "tsx src/cli.ts",
+    "dev:codex": "tsx src/codex-server.ts",
+    "dev:copilot": "tsx src/copilot-server.ts",
+    "dev:cursor": "tsx src/cursor-server.ts",
+    "dev:gemini": "tsx src/gemini-server.ts",
+    "dev:quorum": "tsx src/quorum-server.ts",
+    "test": "vitest run"
+  },
+  "keywords": ["mcp", "quorum", "codex", "copilot", "cursor", "gemini", "multi-agent"],
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0",
+    "vitest": "^3.0.0"
+  }
+}

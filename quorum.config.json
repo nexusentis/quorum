@@ -1,0 +1,9 @@
+{
+  "agents": {
+    "claude": true,
+    "codex": true,
+    "copilot": true,
+    "cursor": true,
+    "gemini": true
+  }
+}

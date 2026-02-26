@@ -1,0 +1,7 @@
+node_modules/
+mcp-servers/dist/
+
+# Generated scratch files
+*-directory-structure*.txt
+*_file_structure*.txt
+*-find.txt

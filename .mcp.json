@@ -1,0 +1,29 @@
+{
+  "mcpServers": {
+    "quorum-codex": {
+      "command": "./mcp-servers/run.sh",
+      "args": ["codex-server.ts"],
+      "description": "Cross-check: OpenAI Codex CLI wrapper (gpt-5.3-codex)"
+    },
+    "quorum-copilot": {
+      "command": "./mcp-servers/run.sh",
+      "args": ["copilot-server.ts"],
+      "description": "Cross-check: GitHub Copilot CLI wrapper (ACP + fallback)"
+    },
+    "quorum-cursor": {
+      "command": "./mcp-servers/run.sh",
+      "args": ["cursor-server.ts"],
+      "description": "Cross-check: Cursor CLI wrapper (Composer 1.5)"
+    },
+    "quorum-gemini": {
+      "command": "./mcp-servers/run.sh",
+      "args": ["gemini-server.ts"],
+      "description": "Cross-check: Google Gemini CLI wrapper (gemini-3-pro)"
+    },
+    "quorum": {
+      "command": "./mcp-servers/run.sh",
+      "args": ["quorum-server.ts"],
+      "description": "Quorum: fan out to all agents in parallel and return collected results"
+    }
+  }
+}

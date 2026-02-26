@@ -1,0 +1,16 @@
+{
+  "name": "quorum-marketplace",
+  "owner": {
+    "name": "Federico Rinaldi"
+  },
+  "metadata": {
+    "description": "Multi-agent quorum workflows for Claude Code — fan out to Codex, Copilot, Cursor, and Gemini in parallel"
+  },
+  "plugins": [
+    {
+      "name": "quorum",
+      "source": ".",
+      "description": "Fan out tasks to 4 AI coding agents in parallel and reconcile into high-confidence recommendations"
+    }
+  ]
+}
