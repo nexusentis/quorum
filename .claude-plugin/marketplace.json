@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "quorum",
-      "source": ".",
+      "source": "./",
       "description": "Fan out tasks to 4 AI coding agents in parallel and reconcile into high-confidence recommendations"
     }
   ]
