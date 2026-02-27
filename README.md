@@ -7,7 +7,8 @@ Multi-agent MCP server that fans out prompts to **Claude**, **Codex**, **Copilot
 Install as a Claude Code plugin:
 
 ```
-/install github.com/federicorinaldi/quorum
+/plugin marketplace add federicorinaldi/quorum
+/plugin install quorum@quorum-marketplace
 ```
 
 Then install the agent CLIs you want to use (see [Prerequisites](#prerequisites)), and run:
@@ -45,7 +46,8 @@ No skills, no relay agents, no blind judge — your editor's LLM handles interpr
 Install directly as a plugin:
 
 ```
-/install github.com/federicorinaldi/quorum
+/plugin marketplace add federicorinaldi/quorum
+/plugin install quorum@quorum-marketplace
 ```
 
 This sets up everything automatically — MCP servers, relay agents, skills, and permissions. Restart Claude Code after installing.
