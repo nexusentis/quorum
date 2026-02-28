@@ -3,7 +3,6 @@ name: run
 description: Fan out a task to Claude, Codex, Copilot, Cursor, and Gemini in parallel, then reconcile their outputs into a high-confidence recommendation. Use for planning, code review, implementation validation, bug diagnosis, and architecture decisions — not for quick changes.
 disable-model-invocation: true
 context: fork
-allowed-tools: Task, Read, mcp__quorum__quorum_query
 ---
 
 # /quorum:run Skill

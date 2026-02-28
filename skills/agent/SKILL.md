@@ -3,7 +3,6 @@ name: agent
 description: Run a single quorum agent (claude, codex, copilot, cursor, or gemini) with a prompt. Usage - /quorum:agent <agent> <prompt>
 disable-model-invocation: true
 context: fork
-allowed-tools: Task, mcp__quorum-codex__codex_query, mcp__quorum-copilot__copilot_query, mcp__quorum-cursor__cursor_query, mcp__quorum-gemini__gemini_query, mcp__quorum__quorum_query
 ---
 
 # /quorum:agent Skill
