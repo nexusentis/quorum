@@ -321,11 +321,8 @@ export async function runCodex(
       "codex",
       [
         "exec",
-        "--full-auto",
         "--sandbox",
         "read-only",
-        "-o",
-        "/dev/stdout",
         "--",
         prompt,
       ],
@@ -401,7 +398,6 @@ function queryViaPlain(
       "--allow-tool",
       "grep",
       "-p",
-      "--",
       prompt,
     ],
     { cwd, timeout: timeoutMs }
@@ -504,7 +500,7 @@ export async function runGemini(
     try {
       result = await exec(
         "gemini",
-        ["--yolo", "--output-format", "json", "-p", "--", prompt],
+        ["--yolo", "--output-format", "json", "-p", prompt],
         { cwd, timeout: jsonTimeout }
       );
     } catch (jsonErr) {
@@ -512,7 +508,7 @@ export async function runGemini(
       console.error(`[gemini] JSON format failed in ${cwd} (${msg}), falling back to plain mode`);
       const remaining = deadline - Date.now();
       if (remaining < TIMEOUT_MIN) throw new Error(`Gemini timed out (insufficient time for fallback after JSON format failure)`);
-      result = await exec("gemini", ["--yolo", "-p", "--", prompt], {
+      result = await exec("gemini", ["--yolo", "-p", prompt], {
         cwd,
         timeout: remaining,
       });

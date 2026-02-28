@@ -62,7 +62,7 @@ For all other modes, assemble the prompt by filling the template placeholders wi
 
 Prepend to all prompts:
 ```
-You are operating in READ-ONLY analysis mode. Do NOT write files, execute commands, or make changes.
+You are operating in READ-ONLY analysis mode. You may read files and explore the codebase, but do NOT write, modify, or delete any files.
 Only produce analysis, review findings, implementation proposals, or recommendations as plain text or code blocks.
 ```
 

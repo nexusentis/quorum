@@ -35,7 +35,7 @@ Determine the absolute path of the current project root (the directory the user 
 
 Prepend to the prompt:
 ```
-You are operating in READ-ONLY analysis mode. Do NOT write files, execute commands, or make changes.
+You are operating in READ-ONLY analysis mode. You may read files and explore the codebase, but do NOT write, modify, or delete any files.
 Only produce analysis or recommendations as plain text.
 ```
 

@@ -55,11 +55,11 @@ describe("repro identified issues", () => {
     expect(proc.kill).toHaveBeenCalledWith("SIGKILL");
   });
 
-  it("runGemini: prompt is separated by -- to prevent flag injection", async () => {
+  it("runGemini: prompt is passed as -p value (not positional)", async () => {
     const proc = createMockProc();
     mockSpawn.mockReturnValue(proc as any);
 
-    // Even a prompt like "-h" is safe because -- terminates option parsing
+    // Prompt like "-h" is safe because it's the value of -p, not a standalone flag
     const promise = runGemini("-h", process.cwd(), 1000);
 
     // Wait for spawn to be called
@@ -69,7 +69,7 @@ describe("repro identified issues", () => {
 
     expect(mockSpawn).toHaveBeenCalledWith(
       "gemini",
-      ["--yolo", "--output-format", "json", "-p", "--", "-h"],
+      ["--yolo", "--output-format", "json", "-p", "-h"],
       expect.anything()
     );
   });
