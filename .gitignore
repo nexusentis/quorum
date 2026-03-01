@@ -1,5 +1,6 @@
 node_modules/
 mcp-servers/dist/
+mcp-servers/.install-lock/
 
 # Generated scratch files
 *-directory-structure*.txt

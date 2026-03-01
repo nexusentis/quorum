@@ -13,11 +13,26 @@ case "${1:-}" in
     ;;
 esac
 
-# Auto-install deps (or repair broken node_modules)
+# Auto-install deps (or repair broken node_modules).
+# Multiple servers launch concurrently — use mkdir as an atomic lock
+# so only one instance runs npm install while the others wait.
 TSX="$DIR/node_modules/.bin/tsx"
+LOCKDIR="$DIR/.install-lock"
+
 if ! "$TSX" --version >/dev/null 2>&1; then
-  rm -rf "$DIR/node_modules"
-  npm install --prefix "$DIR" --silent >&2
+  if mkdir "$LOCKDIR" 2>/dev/null; then
+    # We acquired the lock — run install
+    trap 'rm -rf "$LOCKDIR"' EXIT
+    rm -rf "$DIR/node_modules"
+    npm install --prefix "$DIR" --silent >&2
+    rm -rf "$LOCKDIR"
+    trap - EXIT
+  else
+    # Another process is installing — wait for it to finish
+    while [ -d "$LOCKDIR" ]; do
+      sleep 0.2
+    done
+  fi
 fi
 
 if ! "$TSX" --version >/dev/null 2>&1; then
