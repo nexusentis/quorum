@@ -78,7 +78,7 @@ This one call fans out to all external agents in parallel and returns all result
 
 **Claude agent:** Spawn via the Task tool as `quorum:claude-agent` with the same prompt. This gives Claude a separate participant context so its output can be judged blindly.
 
-Launch both the `quorum_query` call and the `claude-agent` Task simultaneously. Wait for all to complete (or timeout at 120s). Proceed if at least 2 agents return successfully.
+Launch both the `quorum_query` call and the `claude-agent` Task simultaneously. Wait for all to complete. Proceed if at least 2 agents return successfully.
 
 ## Step 4: Collect and parse results
 

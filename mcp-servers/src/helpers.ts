@@ -7,9 +7,6 @@ import { StringDecoder } from "node:string_decoder";
 // ── Constants ────────────────────────────────────────────────────────────────
 
 export const MAX_BUFFER = 10 * 1024 * 1024;
-export const TIMEOUT_DEFAULT = 120_000;
-export const TIMEOUT_MIN = 1_000;
-export const TIMEOUT_MAX = 600_000;
 /** ACP mode cap — ACP is unreliable beyond this; triggers fallback to plain CLI */
 export const ACP_TIMEOUT_CAP_MS = 10_000;
 /** Time to wait for graceful exit before SIGKILL */
@@ -51,11 +48,9 @@ export const toolSchema = {
   timeout_ms: z
     .number()
     .int()
-    .min(TIMEOUT_MIN)
-    .max(TIMEOUT_MAX)
+    .positive()
     .optional()
-    .default(TIMEOUT_DEFAULT)
-    .describe("Timeout in milliseconds"),
+    .describe("Timeout in milliseconds (omit to let agents run to completion)"),
 };
 
 export const toolAnnotations = {
@@ -95,15 +90,13 @@ export function validatePrompt(prompt: string): void {
   }
 }
 
-export function validateTimeout(timeout_ms: number | undefined): number {
-  if (timeout_ms === undefined) return TIMEOUT_DEFAULT;
-  if (!Number.isFinite(timeout_ms)) {
-    throw new Error(`timeout_ms must be a finite number, got ${timeout_ms}`);
+export function validateTimeout(timeout_ms: number | undefined): number | undefined {
+  if (timeout_ms === undefined) return undefined;
+  if (!Number.isFinite(timeout_ms) || timeout_ms <= 0) {
+    throw new Error(`timeout_ms must be a positive finite number, got ${timeout_ms}`);
   }
-  if (timeout_ms < TIMEOUT_MIN || timeout_ms > TIMEOUT_MAX) {
-    throw new Error(
-      `timeout_ms must be between ${TIMEOUT_MIN} and ${TIMEOUT_MAX}, got ${timeout_ms}`
-    );
+  if (!Number.isInteger(timeout_ms)) {
+    throw new Error(`timeout_ms must be an integer, got ${timeout_ms}`);
   }
   return timeout_ms;
 }
@@ -114,7 +107,7 @@ interface SpawnOpts {
   cmd: string;
   args: string[];
   cwd: string;
-  timeout: number;
+  timeout?: number;
   label: string;
   stdinData?: string;
   processStdout?: (stdout: string, stderr: string, code: number | null) => string;
@@ -167,7 +160,7 @@ function spawnManaged(opts: SpawnOpts): Promise<string> {
     function settle(fn: () => void, preserveKillTimer = false) {
       if (settled) return;
       settled = true;
-      clearTimeout(timer);
+      if (timer) clearTimeout(timer);
       if (!preserveKillTimer && killTimer) {
         clearTimeout(killTimer);
         killTimer = undefined;
@@ -196,10 +189,13 @@ function spawnManaged(opts: SpawnOpts): Promise<string> {
       settle(() => reject(new Error(reason)), true);
     }
 
-    const timer = setTimeout(() => {
-      killProc(`${opts.label} timed out after ${opts.timeout}ms`);
-    }, opts.timeout);
-    timer.unref();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    if (opts.timeout !== undefined) {
+      timer = setTimeout(() => {
+        killProc(`${opts.label} timed out after ${opts.timeout}ms`);
+      }, opts.timeout);
+      timer.unref();
+    }
 
     proc.stdout.on("data", (c: Buffer) => {
       stdoutLen += c.length;
@@ -265,7 +261,7 @@ function spawnManaged(opts: SpawnOpts): Promise<string> {
 export function exec(
   cmd: string,
   args: string[],
-  opts: { cwd: string; timeout: number }
+  opts: { cwd: string; timeout?: number }
 ): Promise<string> {
   return spawnManaged({ cmd, args, cwd: opts.cwd, timeout: opts.timeout, label: cmd });
 }
@@ -339,9 +335,9 @@ export async function runCodex(
 function queryViaACP(
   prompt: string,
   cwd: string,
-  timeoutMs: number
+  timeoutMs: number | undefined
 ): Promise<string> {
-  const acpLimit = Math.min(timeoutMs, ACP_TIMEOUT_CAP_MS);
+  const acpLimit = timeoutMs !== undefined ? Math.min(timeoutMs, ACP_TIMEOUT_CAP_MS) : ACP_TIMEOUT_CAP_MS;
   const jsonRpcPayload = JSON.stringify({
     jsonrpc: "2.0",
     id: 1,
@@ -385,7 +381,7 @@ function queryViaACP(
 function queryViaPlain(
   prompt: string,
   cwd: string,
-  timeoutMs: number
+  timeoutMs: number | undefined
 ): Promise<string> {
   return exec(
     "copilot",
@@ -415,16 +411,19 @@ export async function runCopilot(
     validatePrompt(prompt);
     const cwd = await validateWorkdir(workdir);
     const timeout = validateTimeout(timeout_ms);
-    const deadline = start + timeout;
     let result: string;
     try {
       result = await queryViaACP(prompt, cwd, timeout);
     } catch (acpErr) {
       const msg = acpErr instanceof Error ? acpErr.message : String(acpErr);
       console.error(`[copilot] ACP mode failed in ${cwd} (${msg}), falling back to plain CLI`);
-      const remaining = deadline - Date.now();
-      if (remaining < TIMEOUT_MIN) throw new Error(`Copilot timed out (insufficient time for fallback after ACP failure)`);
-      result = await queryViaPlain(prompt, cwd, remaining);
+      if (timeout !== undefined) {
+        const remaining = (start + timeout) - Date.now();
+        if (remaining <= 0) throw new Error(`Copilot timed out (insufficient time for fallback after ACP failure)`);
+        result = await queryViaPlain(prompt, cwd, remaining);
+      } else {
+        result = await queryViaPlain(prompt, cwd, undefined);
+      }
     }
     return formatSuccess(
       "copilot",
@@ -494,9 +493,8 @@ export async function runGemini(
     validatePrompt(prompt);
     const cwd = await validateWorkdir(workdir);
     const timeout = validateTimeout(timeout_ms);
-    const deadline = start + timeout;
     let result: string;
-    const jsonTimeout = Math.ceil(timeout * 0.8);
+    const jsonTimeout = timeout !== undefined ? Math.ceil(timeout * 0.8) : undefined;
     try {
       result = await exec(
         "gemini",
@@ -506,12 +504,16 @@ export async function runGemini(
     } catch (jsonErr) {
       const msg = jsonErr instanceof Error ? jsonErr.message : String(jsonErr);
       console.error(`[gemini] JSON format failed in ${cwd} (${msg}), falling back to plain mode`);
-      const remaining = deadline - Date.now();
-      if (remaining < TIMEOUT_MIN) throw new Error(`Gemini timed out (insufficient time for fallback after JSON format failure)`);
-      result = await exec("gemini", ["--yolo", "-p", prompt], {
-        cwd,
-        timeout: remaining,
-      });
+      if (timeout !== undefined) {
+        const remaining = (start + timeout) - Date.now();
+        if (remaining <= 0) throw new Error(`Gemini timed out (insufficient time for fallback after JSON format failure)`);
+        result = await exec("gemini", ["--yolo", "-p", prompt], {
+          cwd,
+          timeout: remaining,
+        });
+      } else {
+        result = await exec("gemini", ["--yolo", "-p", prompt], { cwd });
+      }
     }
     return formatSuccess(
       "gemini",

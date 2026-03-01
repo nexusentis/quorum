@@ -19,9 +19,6 @@ import {
   toolSchema,
   quorumToolSchema,
   EXTERNAL_AGENT_NAMES,
-  TIMEOUT_DEFAULT,
-  TIMEOUT_MIN,
-  TIMEOUT_MAX,
   MAX_BUFFER,
   MAX_PROMPT_LENGTH,
   SIGKILL_GRACE_MS,
@@ -69,32 +66,36 @@ describe("validateWorkdir", () => {
 // ── validateTimeout ──────────────────────────────────────────────────────────
 
 describe("validateTimeout", () => {
-  it("returns default for undefined", () => {
-    expect(validateTimeout(undefined)).toBe(TIMEOUT_DEFAULT);
+  it("returns undefined for undefined (no default timeout)", () => {
+    expect(validateTimeout(undefined)).toBeUndefined();
   });
 
-  it("returns the value when within range", () => {
+  it("returns the value when valid", () => {
     expect(validateTimeout(5000)).toBe(5000);
   });
 
-  it("throws for values below TIMEOUT_MIN", () => {
-    expect(() => validateTimeout(500)).toThrow(
-      `timeout_ms must be between ${TIMEOUT_MIN} and ${TIMEOUT_MAX}`
-    );
+  it("accepts large timeout values", () => {
+    expect(validateTimeout(700_000)).toBe(700_000);
   });
 
-  it("throws for values above TIMEOUT_MAX", () => {
-    expect(() => validateTimeout(700_000)).toThrow(
-      `timeout_ms must be between ${TIMEOUT_MIN} and ${TIMEOUT_MAX}`
-    );
+  it("throws for zero", () => {
+    expect(() => validateTimeout(0)).toThrow("must be a positive finite number");
+  });
+
+  it("throws for negative values", () => {
+    expect(() => validateTimeout(-1000)).toThrow("must be a positive finite number");
+  });
+
+  it("throws for non-integer values", () => {
+    expect(() => validateTimeout(1000.5)).toThrow("must be an integer");
   });
 
   it("throws for NaN", () => {
-    expect(() => validateTimeout(NaN)).toThrow("must be a finite number");
+    expect(() => validateTimeout(NaN)).toThrow("must be a positive finite number");
   });
 
   it("throws for Infinity", () => {
-    expect(() => validateTimeout(Infinity)).toThrow("must be a finite number");
+    expect(() => validateTimeout(Infinity)).toThrow("must be a positive finite number");
   });
 });
 
@@ -148,10 +149,10 @@ describe("formatError", () => {
 describe("toolSchema", () => {
   const schema = z.object(toolSchema);
 
-  it("accepts a valid prompt", () => {
+  it("accepts a valid prompt without timeout_ms", () => {
     const result = schema.parse({ prompt: "hello" });
     expect(result.prompt).toBe("hello");
-    expect(result.timeout_ms).toBe(TIMEOUT_DEFAULT);
+    expect(result.timeout_ms).toBeUndefined();
   });
 
   it("rejects missing prompt", () => {
@@ -167,14 +168,14 @@ describe("toolSchema", () => {
     expect(result.timeout_ms).toBe(5000);
   });
 
-  it("rejects timeout_ms below TIMEOUT_MIN", () => {
-    expect(() => schema.parse({ prompt: "hi", timeout_ms: 500 })).toThrow();
+  it("accepts large timeout_ms values", () => {
+    const result = schema.parse({ prompt: "hi", timeout_ms: 700_000 });
+    expect(result.timeout_ms).toBe(700_000);
   });
 
-  it("rejects timeout_ms above TIMEOUT_MAX", () => {
-    expect(() =>
-      schema.parse({ prompt: "hi", timeout_ms: 700_000 })
-    ).toThrow();
+  it("rejects non-positive timeout_ms", () => {
+    expect(() => schema.parse({ prompt: "hi", timeout_ms: 0 })).toThrow();
+    expect(() => schema.parse({ prompt: "hi", timeout_ms: -1 })).toThrow();
   });
 
   it("rejects non-integer timeout_ms", () => {
@@ -1025,15 +1026,15 @@ describe("runCopilot fallback timeout exhaustion", () => {
     const acpProc = createMockProc();
     mockSpawn.mockReturnValue(acpProc as any);
 
-    // Use minimum timeout — ACP cap is 10s but timeout is only 1s
-    const promise = runCopilot("hello", process.cwd(), TIMEOUT_MIN);
+    // Use a small timeout — ACP cap is 10s but timeout is only 1s
+    const promise = runCopilot("hello", process.cwd(), 1000);
 
     await vi.waitFor(() => {
       expect(mockSpawn).toHaveBeenCalledTimes(1);
     });
 
     // ACP times out
-    vi.advanceTimersByTime(TIMEOUT_MIN);
+    vi.advanceTimersByTime(1000);
 
     const result = await promise;
     const parsed = JSON.parse(result.content[0].text);
@@ -1057,15 +1058,15 @@ describe("runGemini fallback timeout exhaustion", () => {
     const jsonProc = createMockProc();
     mockSpawn.mockReturnValue(jsonProc as any);
 
-    // Use minimum timeout — 80% of 1000ms = 800ms for JSON mode, leaving 200ms < TIMEOUT_MIN
-    const promise = runGemini("hello", process.cwd(), TIMEOUT_MIN);
+    // Use a small timeout — 80% of 1000ms = 800ms for JSON mode
+    const promise = runGemini("hello", process.cwd(), 1000);
 
     await vi.waitFor(() => {
       expect(mockSpawn).toHaveBeenCalledTimes(1);
     });
 
     // JSON mode times out at 80% of budget
-    vi.advanceTimersByTime(TIMEOUT_MIN);
+    vi.advanceTimersByTime(1000);
 
     const result = await promise;
     const parsed = JSON.parse(result.content[0].text);
