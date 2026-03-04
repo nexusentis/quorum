@@ -1,6 +1,10 @@
-# Quorum
+<p align="center">
+  <img src="assets/logo.svg" width="120" alt="Quorum logo">
+</p>
 
-Multi-agent MCP server that fans out prompts to **Claude**, **Codex**, **Copilot**, **Cursor**, and **Gemini** in parallel, then reconciles their outputs into a single high-confidence recommendation.
+<h1 align="center">Quorum</h1>
+
+<p align="center">Multi-agent MCP server that fans out prompts to <b>Claude</b>, <b>Codex</b>, <b>Copilot</b>, <b>Cursor</b>, and <b>Gemini</b> in parallel, then reconciles their outputs into a single high-confidence recommendation.</p>
 
 ## Quickstart (Claude Code)
 
