@@ -1,27 +1,27 @@
 {
   "mcpServers": {
     "quorum-codex": {
-      "command": "${CLAUDE_PLUGIN_ROOT}/mcp-servers/run.sh",
+      "command": "./mcp-servers/run.sh",
       "args": ["codex-server.ts"],
       "description": "Cross-check: OpenAI Codex CLI wrapper (gpt-5.3-codex)"
     },
     "quorum-copilot": {
-      "command": "${CLAUDE_PLUGIN_ROOT}/mcp-servers/run.sh",
+      "command": "./mcp-servers/run.sh",
       "args": ["copilot-server.ts"],
       "description": "Cross-check: GitHub Copilot CLI wrapper (ACP + fallback)"
     },
     "quorum-cursor": {
-      "command": "${CLAUDE_PLUGIN_ROOT}/mcp-servers/run.sh",
+      "command": "./mcp-servers/run.sh",
       "args": ["cursor-server.ts"],
       "description": "Cross-check: Cursor CLI wrapper (Composer 1.5)"
     },
     "quorum-gemini": {
-      "command": "${CLAUDE_PLUGIN_ROOT}/mcp-servers/run.sh",
+      "command": "./mcp-servers/run.sh",
       "args": ["gemini-server.ts"],
       "description": "Cross-check: Google Gemini CLI wrapper (gemini-3-pro)"
     },
     "quorum": {
-      "command": "${CLAUDE_PLUGIN_ROOT}/mcp-servers/run.sh",
+      "command": "./mcp-servers/run.sh",
       "args": ["quorum-server.ts"],
       "description": "Quorum: fan out to all agents in parallel and return collected results"
     }
