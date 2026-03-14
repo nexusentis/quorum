@@ -15,11 +15,12 @@ import {
   runGemini,
   runQuorum,
   getEnabledAgents,
-  getConfig,
   isRateLimited,
   toolSchema,
   quorumToolSchema,
   EXTERNAL_AGENT_NAMES,
+  TIMEOUT_MIN,
+  TIMEOUT_MAX,
   MAX_BUFFER,
   MAX_PROMPT_LENGTH,
   SIGKILL_GRACE_MS,
@@ -67,36 +68,32 @@ describe("validateWorkdir", () => {
 // ── validateTimeout ──────────────────────────────────────────────────────────
 
 describe("validateTimeout", () => {
-  it("returns undefined for undefined (no default timeout)", () => {
+  it("returns undefined for undefined (no timeout)", () => {
     expect(validateTimeout(undefined)).toBeUndefined();
   });
 
-  it("returns the value when valid", () => {
+  it("returns the value when within range", () => {
     expect(validateTimeout(5000)).toBe(5000);
   });
 
-  it("accepts large timeout values", () => {
-    expect(validateTimeout(700_000)).toBe(700_000);
+  it("throws for values below TIMEOUT_MIN", () => {
+    expect(() => validateTimeout(500)).toThrow(
+      `timeout_ms must be between ${TIMEOUT_MIN} and ${TIMEOUT_MAX}`
+    );
   });
 
-  it("throws for zero", () => {
-    expect(() => validateTimeout(0)).toThrow("must be a positive finite number");
-  });
-
-  it("throws for negative values", () => {
-    expect(() => validateTimeout(-1000)).toThrow("must be a positive finite number");
-  });
-
-  it("throws for non-integer values", () => {
-    expect(() => validateTimeout(1000.5)).toThrow("must be an integer");
+  it("throws for values above TIMEOUT_MAX", () => {
+    expect(() => validateTimeout(700_000)).toThrow(
+      `timeout_ms must be between ${TIMEOUT_MIN} and ${TIMEOUT_MAX}`
+    );
   });
 
   it("throws for NaN", () => {
-    expect(() => validateTimeout(NaN)).toThrow("must be a positive finite number");
+    expect(() => validateTimeout(NaN)).toThrow("must be a finite number");
   });
 
   it("throws for Infinity", () => {
-    expect(() => validateTimeout(Infinity)).toThrow("must be a positive finite number");
+    expect(() => validateTimeout(Infinity)).toThrow("must be a finite number");
   });
 });
 
@@ -150,14 +147,10 @@ describe("formatError", () => {
 describe("toolSchema", () => {
   const schema = z.object(toolSchema);
 
-  it("accepts a valid prompt", () => {
+  it("accepts a valid prompt without timeout_ms", () => {
     const result = schema.parse({ prompt: "hello" });
     expect(result.prompt).toBe("hello");
-  });
-
-  it("does not include timeout_ms field", () => {
-    const keys = Object.keys(toolSchema);
-    expect(keys).not.toContain("timeout_ms");
+    expect(result.timeout_ms).toBeUndefined();
   });
 
   it("rejects missing prompt", () => {
@@ -166,6 +159,27 @@ describe("toolSchema", () => {
 
   it("rejects empty prompt", () => {
     expect(() => schema.parse({ prompt: "" })).toThrow();
+  });
+
+  it("accepts a valid timeout_ms", () => {
+    const result = schema.parse({ prompt: "hi", timeout_ms: 5000 });
+    expect(result.timeout_ms).toBe(5000);
+  });
+
+  it("rejects timeout_ms below TIMEOUT_MIN", () => {
+    expect(() => schema.parse({ prompt: "hi", timeout_ms: 500 })).toThrow();
+  });
+
+  it("rejects timeout_ms above TIMEOUT_MAX", () => {
+    expect(() =>
+      schema.parse({ prompt: "hi", timeout_ms: 700_000 })
+    ).toThrow();
+  });
+
+  it("rejects non-integer timeout_ms", () => {
+    expect(() =>
+      schema.parse({ prompt: "hi", timeout_ms: 1000.5 })
+    ).toThrow();
   });
 
   it("rejects prompt exceeding MAX_PROMPT_LENGTH", () => {
@@ -727,86 +741,6 @@ describe("getEnabledAgents", () => {
   });
 });
 
-// ── getConfig tests ──────────────────────────────────────────────────────────
-
-describe("getConfig", () => {
-  it("returns defaults when config file is missing", async () => {
-    const config = await getConfig("/nonexistent-path-xyz");
-    expect(config.agents).toEqual([...EXTERNAL_AGENT_NAMES]);
-    expect(config.timeout_ms).toBeUndefined();
-  });
-
-  it("reads timeout_ms from config", async () => {
-    const dir = await mkdtemp(join(process.cwd(), ".quorum-test-"));
-    try {
-      await writeFile(
-        join(dir, "quorum.config.json"),
-        JSON.stringify({ agents: { codex: true, copilot: true, cursor: true, gemini: true }, timeout_ms: 300000 })
-      );
-      const config = await getConfig(dir);
-      expect(config.timeout_ms).toBe(300000);
-    } finally {
-      await rm(dir, { recursive: true });
-    }
-  });
-
-  it("ignores invalid timeout_ms values", async () => {
-    const dir = await mkdtemp(join(process.cwd(), ".quorum-test-"));
-    try {
-      // Non-integer
-      await writeFile(join(dir, "quorum.config.json"), JSON.stringify({ timeout_ms: 100.5 }));
-      expect((await getConfig(dir)).timeout_ms).toBeUndefined();
-
-      // Negative
-      await writeFile(join(dir, "quorum.config.json"), JSON.stringify({ timeout_ms: -1000 }));
-      expect((await getConfig(dir)).timeout_ms).toBeUndefined();
-
-      // Zero
-      await writeFile(join(dir, "quorum.config.json"), JSON.stringify({ timeout_ms: 0 }));
-      expect((await getConfig(dir)).timeout_ms).toBeUndefined();
-
-      // String
-      await writeFile(join(dir, "quorum.config.json"), JSON.stringify({ timeout_ms: "5000" }));
-      expect((await getConfig(dir)).timeout_ms).toBeUndefined();
-
-      // Infinity (not representable in JSON, becomes null)
-      await writeFile(join(dir, "quorum.config.json"), JSON.stringify({ timeout_ms: null }));
-      expect((await getConfig(dir)).timeout_ms).toBeUndefined();
-    } finally {
-      await rm(dir, { recursive: true });
-    }
-  });
-
-  it("returns undefined timeout_ms when field is absent", async () => {
-    const dir = await mkdtemp(join(process.cwd(), ".quorum-test-"));
-    try {
-      await writeFile(
-        join(dir, "quorum.config.json"),
-        JSON.stringify({ agents: { codex: true } })
-      );
-      const config = await getConfig(dir);
-      expect(config.timeout_ms).toBeUndefined();
-    } finally {
-      await rm(dir, { recursive: true });
-    }
-  });
-
-  it("reads both agents and timeout_ms together", async () => {
-    const dir = await mkdtemp(join(process.cwd(), ".quorum-test-"));
-    try {
-      await writeFile(
-        join(dir, "quorum.config.json"),
-        JSON.stringify({ agents: { codex: true, copilot: false, cursor: false, gemini: false }, timeout_ms: 5000 })
-      );
-      const config = await getConfig(dir);
-      expect(config.agents).toEqual(["codex"]);
-      expect(config.timeout_ms).toBe(5000);
-    } finally {
-      await rm(dir, { recursive: true });
-    }
-  });
-});
-
 // ── isRateLimited tests ─────────────────────────────────────────────────────
 
 describe("isRateLimited", () => {
@@ -1090,15 +1024,15 @@ describe("runCopilot fallback timeout exhaustion", () => {
     const acpProc = createMockProc();
     mockSpawn.mockReturnValue(acpProc as any);
 
-    // Use a small timeout — ACP cap is 10s but timeout is only 1s
-    const promise = runCopilot("hello", process.cwd(), 1000);
+    // Use minimum timeout — ACP cap is 10s but timeout is only 1s
+    const promise = runCopilot("hello", process.cwd(), TIMEOUT_MIN);
 
     await vi.waitFor(() => {
       expect(mockSpawn).toHaveBeenCalledTimes(1);
     });
 
     // ACP times out
-    vi.advanceTimersByTime(1000);
+    vi.advanceTimersByTime(TIMEOUT_MIN);
 
     const result = await promise;
     const parsed = JSON.parse(result.content[0].text);
@@ -1122,15 +1056,15 @@ describe("runGemini fallback timeout exhaustion", () => {
     const jsonProc = createMockProc();
     mockSpawn.mockReturnValue(jsonProc as any);
 
-    // Use a small timeout — 80% of 1000ms = 800ms for JSON mode
-    const promise = runGemini("hello", process.cwd(), 1000);
+    // Use minimum timeout — 80% of 1000ms = 800ms for JSON mode, leaving 200ms < TIMEOUT_MIN
+    const promise = runGemini("hello", process.cwd(), TIMEOUT_MIN);
 
     await vi.waitFor(() => {
       expect(mockSpawn).toHaveBeenCalledTimes(1);
     });
 
     // JSON mode times out at 80% of budget
-    vi.advanceTimersByTime(1000);
+    vi.advanceTimersByTime(TIMEOUT_MIN);
 
     const result = await promise;
     const parsed = JSON.parse(result.content[0].text);

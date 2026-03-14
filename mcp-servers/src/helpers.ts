@@ -7,6 +7,8 @@ import { StringDecoder } from "node:string_decoder";
 // ── Constants ────────────────────────────────────────────────────────────────
 
 export const MAX_BUFFER = 10 * 1024 * 1024;
+export const TIMEOUT_MIN = 1_000;
+export const TIMEOUT_MAX = 600_000;
 /** ACP mode cap — ACP is unreliable beyond this; triggers fallback to plain CLI */
 export const ACP_TIMEOUT_CAP_MS = 10_000;
 /** Time to wait for graceful exit before SIGKILL */
@@ -45,6 +47,13 @@ export type ToolReturn = {
 export const toolSchema = {
   prompt: z.string().min(1).max(MAX_PROMPT_LENGTH).describe("The full prompt to send"),
   workdir: z.string().optional().describe("Working directory for the command"),
+  timeout_ms: z
+    .number()
+    .int()
+    .min(TIMEOUT_MIN)
+    .max(TIMEOUT_MAX)
+    .optional()
+    .describe("Timeout in milliseconds (omit to let agents run to completion)"),
 };
 
 export const toolAnnotations = {
@@ -86,11 +95,13 @@ export function validatePrompt(prompt: string): void {
 
 export function validateTimeout(timeout_ms: number | undefined): number | undefined {
   if (timeout_ms === undefined) return undefined;
-  if (!Number.isFinite(timeout_ms) || timeout_ms <= 0) {
-    throw new Error(`timeout_ms must be a positive finite number, got ${timeout_ms}`);
+  if (!Number.isFinite(timeout_ms)) {
+    throw new Error(`timeout_ms must be a finite number, got ${timeout_ms}`);
   }
-  if (!Number.isInteger(timeout_ms)) {
-    throw new Error(`timeout_ms must be an integer, got ${timeout_ms}`);
+  if (timeout_ms < TIMEOUT_MIN || timeout_ms > TIMEOUT_MAX) {
+    throw new Error(
+      `timeout_ms must be between ${TIMEOUT_MIN} and ${TIMEOUT_MAX}, got ${timeout_ms}`
+    );
   }
   return timeout_ms;
 }
@@ -544,49 +555,25 @@ export interface QuorumResult {
   error?: string;
 }
 
-export interface QuorumConfig {
-  agents: ExternalAgent[];
-  timeout_ms: number | undefined;
-}
-
-export async function getConfig(cwd: string): Promise<QuorumConfig> {
-  const defaults: QuorumConfig = { agents: [...EXTERNAL_AGENT_NAMES], timeout_ms: undefined };
+export async function getEnabledAgents(cwd: string): Promise<ExternalAgent[]> {
   try {
     const configPath = resolve(cwd, "quorum.config.json");
     const raw = await readFile(configPath, "utf-8");
     const config = JSON.parse(raw);
-
-    // Parse agents
-    let agents = defaults.agents;
-    if (config.agents && typeof config.agents === "object" && !Array.isArray(config.agents)) {
-      const enabled = EXTERNAL_AGENT_NAMES.filter(
-        (name) => config.agents[name] !== false
-      );
-      if (enabled.length > 0) agents = enabled;
+    if (!config.agents || typeof config.agents !== "object" || Array.isArray(config.agents)) {
+      return [...EXTERNAL_AGENT_NAMES];
     }
-
-    // Parse timeout_ms
-    let timeout_ms: number | undefined = undefined;
-    if (config.timeout_ms !== undefined) {
-      const val = config.timeout_ms;
-      if (typeof val === "number" && Number.isFinite(val) && Number.isInteger(val) && val > 0) {
-        timeout_ms = val;
-      }
-    }
-
-    return { agents, timeout_ms };
+    const enabled = EXTERNAL_AGENT_NAMES.filter(
+      (name) => config.agents[name] !== false
+    );
+    return enabled.length > 0 ? enabled : [...EXTERNAL_AGENT_NAMES];
   } catch (err) {
     const isNotFound = err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT";
     if (!isNotFound) {
       console.error(`[quorum] Failed to read quorum.config.json: ${err instanceof Error ? err.message : err}`);
     }
-    return defaults;
+    return [...EXTERNAL_AGENT_NAMES];
   }
-}
-
-export async function getEnabledAgents(cwd: string): Promise<ExternalAgent[]> {
-  const config = await getConfig(cwd);
-  return config.agents;
 }
 
 export function isRateLimited(msg: string): boolean {

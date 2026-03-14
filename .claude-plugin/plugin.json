@@ -1,7 +1,7 @@
 {
   "name": "quorum",
   "description": "Multi-agent quorum workflow — fans out tasks to Claude, Codex, Copilot, Cursor, and Gemini in parallel, then reconciles their outputs into a high-confidence recommendation. Use for planning, code review, implementation validation, bug diagnosis, and architecture decisions.",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "author": {
     "name": "Federico Rinaldi"
   },

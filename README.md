@@ -328,6 +328,7 @@ Call tools directly from your editor's AI chat. Each tool accepts:
 |-----------|------|----------|-------------|
 | `prompt` | string | Yes | The prompt to send |
 | `workdir` | string | No | Working directory (defaults to cwd) |
+| `timeout_ms` | number | No | Timeout in ms (omit to run to completion, range: 1000–600000) |
 
 The `quorum_query` tool adds one extra parameter:
 
@@ -449,7 +450,7 @@ Run the verify command from the prerequisites table (e.g., `codex --version`). I
 Disable the rate-limited agent in `quorum.config.json` by setting it to `false`, or use `--skip <agent>` for a single run.
 
 **Timeouts**
-By default, agents run to completion with no timeout. To set a global timeout, add `"timeout_ms": 300000` to `quorum.config.json`.
+By default, agents run to completion with no timeout. To set a global timeout, add `"timeout_ms": 300000` to `quorum.config.json`. Range: 1000–600000ms.
 
 **Agent returns empty or error response**
 Run `/quorum:agent <agent> say hello` in Claude Code (or call `*_query` with a simple prompt in other editors) to isolate which agent is failing.
